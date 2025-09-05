@@ -6,3 +6,6 @@ dist
 
 #VSCODE
 .vscode
+
+#PRIVATE KEYS
+.env
