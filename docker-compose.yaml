@@ -1,0 +1,28 @@
+services:
+  mongo-db:
+    image: mongo
+    container_name: mongo
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+
+    volumes:
+      - mongo_data:/data/db
+
+  user:
+    build: 
+      context: ./userservice
+    container_name: user-service
+
+    ports:
+      - "3002:3000"
+
+    environment:
+      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+      
+    depends_on:
+      - mongo-db
+
+volumes:
+  mongo_data:
