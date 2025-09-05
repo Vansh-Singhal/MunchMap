@@ -1,12 +1,10 @@
 import express from 'express';
 const router = express.Router();
+import { registerUser } from '../controllers/authController';
 
-// const authController = require('../controller/authController');
 // const {protect, restrictTo} = require("../middlewares/authMiddleware");
 
-// const { registerUser, loginUser } = authController;
-
-// router.post('/register', registerUser);
+router.post('/register', registerUser);
 // router.post('/login', loginUser);
 
 // router.get('/admin-dashboard', protect, restrictTo('admin'), (req, res) => {
