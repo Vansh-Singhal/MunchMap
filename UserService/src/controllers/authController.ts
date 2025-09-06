@@ -32,7 +32,7 @@ export const registerUser = async (
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user : User = await UserDB.create({
+    const user: User = await UserDB.create({
       name,
       email,
       contact,
@@ -51,7 +51,6 @@ export const registerUser = async (
       success: true,
     });
   } catch (error: any) {
-    console.error("Registration error:", error.message);
     return res.status(500).json({
       message: "Internal server error",
       success: false,
@@ -122,7 +121,6 @@ export const loginUser = async (
         success: true,
       });
   } catch (error: any) {
-    console.error("Login error:", error.message);
     return res.status(500).json({
       message: "Internal server error",
       success: false,
@@ -145,7 +143,6 @@ export const logoutUser = async (
       success: true,
     });
   } catch (error: any) {
-    console.error("Logout error:", error.message);
     return res.status(500).json({
       message: "Internal server error during logout",
       success: false,
