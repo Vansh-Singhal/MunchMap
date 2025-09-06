@@ -1,6 +1,6 @@
-import { Schema, Document, model } from "mongoose";
+import { Schema, HydratedDocument , model } from "mongoose";
 
-export interface User extends Document {
+export interface User {
   name: string;
   email: string;
   password: string;
@@ -8,6 +8,8 @@ export interface User extends Document {
   createdAt: Date;
   role: string;
 }
+
+export type UserDocument = HydratedDocument<User>;
 
 const UserSchema: Schema<User> = new Schema(
   {

@@ -1,11 +1,13 @@
-import express from 'express';
-const router = express.Router();
-import { registerUser } from '../controllers/authController';
+import express, { Router } from 'express';
+import { registerUser, loginUser, logoutUser } from '../controllers/authController';
+
+const router : Router = express.Router();
 
 // const {protect, restrictTo} = require("../middlewares/authMiddleware");
 
 router.post('/register', registerUser);
-// router.post('/login', loginUser);
+router.post('/login', loginUser);
+router.get('/logout', logoutUser)
 
 // router.get('/admin-dashboard', protect, restrictTo('admin'), (req, res) => {
 //     res.status(200).json( {
