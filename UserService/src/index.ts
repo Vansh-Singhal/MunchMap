@@ -8,6 +8,7 @@ const app = express();
 import { PORT } from './utils/config';
 import connectDB from './config/dbconfig';
 import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
 
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
@@ -20,6 +21,8 @@ const corsOption = {
 app.use(cors(corsOption));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+// app.use('/api/admin', adminRoutes);
 
 
 connectDB();

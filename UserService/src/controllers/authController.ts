@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import UserDB, { User, UserDocument } from "../models/User";
+import UserDB, { User } from "../models/User";
 import { generateToken } from "../utils/generateToken";
 import { RegisterRequestBody } from "../types/RegisterReq";
 import { LoginRequestBody } from "../types/LoginReq";
@@ -32,7 +32,7 @@ export const registerUser = async (
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await UserDB.create({
+    const user : User = await UserDB.create({
       name,
       email,
       contact,
@@ -40,11 +40,8 @@ export const registerUser = async (
       role,
     });
 
-    const token = generateToken(user);
-
     return res.status(201).json({
       message: "Account created successfully",
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -76,7 +73,7 @@ export const loginUser = async (
       });
     }
 
-    const userDoc: UserDocument | null = await UserDB.findOne({ email });
+    const userDoc: User | null = await UserDB.findOne({ email });
 
     if (!userDoc) {
       return res.status(400).json({
@@ -121,6 +118,7 @@ export const loginUser = async (
       .json({
         message: `Welcome back, ${user.name}`,
         user,
+        token,
         success: true,
       });
   } catch (error: any) {
