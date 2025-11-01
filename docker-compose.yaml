@@ -13,6 +13,7 @@ services:
   user:
     build: 
       context: ./userservice
+    
     container_name: user-service
 
     ports:
@@ -23,6 +24,23 @@ services:
       
     depends_on:
       - mongo-db
+
+  vendor:
+    build:
+      context: ./vendorservice
+
+    container_name: vendor-service
+
+    ports : 
+      - "3001:3000"
+
+    environment:
+    MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+    
+    depends_on:
+      - mongo-db
+
+
 
 volumes:
   mongo_data:
