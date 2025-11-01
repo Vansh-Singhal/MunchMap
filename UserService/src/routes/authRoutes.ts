@@ -3,9 +3,16 @@ import { registerUser, loginUser, logoutUser } from '../controllers/authControll
 
 const router : Router = Router();
 
-//Signup, Login, Logout for the users
+// Register User
+// /api/auth/register
 router.post('/register', registerUser);
+
+// Login User
+// /api/auth/register
 router.post('/login', loginUser);
+
+// Logout user
+// /api/auth/register
 router.get('/logout', logoutUser)
 
 export default router;

@@ -10,23 +10,23 @@ import {
 const router = Router();
 
 // Create a new vendor
-// POST /vendors
+// POST /vendor
 router.post("/", createVendor);
 
 // Get vendor by user ID
-// GET /vendors/user/:userId
+// GET /vendor/user/:userId
 router.get("/user/:userId", getVendorByUserId);
 
 // Get all vendors
-// GET /vendors
+// GET /vendor
 router.get("/", getAllVendors);
 
 // Update vendor info
-// PUT /vendors/:vendorId
+// PUT /vendor/:vendorId
 router.put("/:vendorId", updateVendor);
 
 // Update vendor status (open/close)
-// PATCH /vendors/:vendorId/status
+// PATCH /vendor/:vendorId/status
 router.patch("/:vendorId/status", updateVendorStatus);
 
 export default router;
