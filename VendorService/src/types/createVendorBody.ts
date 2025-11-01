@@ -1,4 +1,4 @@
-export type CreateVendorBody {
+export type CreateVendorBody = {
   user: string;
   outletName: string;
   location: string;
