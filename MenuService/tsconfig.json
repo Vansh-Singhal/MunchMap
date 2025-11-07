@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    /* 📁 File System */
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    /* 💻 Runtime & Modules */
+    "target": "ES2020",                     // Modern but Node-compatible
+    "module": "CommonJS",                   // Use "CommonJS" for most Node apps
+    "moduleResolution": "node",
+    "esModuleInterop": true,                // Allow default imports from CJS
+    "resolveJsonModule": true,              // Allows importing JSON files
+    "lib": ["ES2020"],
+    "types": ["node"],                      // For Node.js types
+
+    /* 🧠 Type Safety */
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* 🛠 Output & Debug */
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    /* 🔍 Module Handling */
+    "verbatimModuleSyntax": false,          // Not needed in CommonJS
+    "isolatedModules": false,               // Only needed for Babel or ESM
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

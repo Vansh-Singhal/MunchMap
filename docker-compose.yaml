@@ -40,5 +40,21 @@ services:
     depends_on:
       - mongo-db
 
+  menu:
+    build:
+      context: ./menuservice
+
+    container_name: menu-service
+
+    ports : 
+      - "3003:3000"
+
+    environment:
+      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+    
+    depends_on:
+      - mongo-db
+
+
 volumes:
   mongo_data:
