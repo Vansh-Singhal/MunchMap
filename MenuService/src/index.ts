@@ -25,5 +25,5 @@ app.use("/api/menu/", router);
 connectDB();
 
 app.listen(PORT, () => {
-  console.log(`User service is running on port ${PORT}`);
+  console.log(`Menu service is running on port ${PORT}`);
 });

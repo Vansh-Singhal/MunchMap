@@ -8,7 +8,7 @@ const app = express();
 import { PORT } from "./utils/config";
 import connectDB from "./config/dbconfig";
 
-import router from "./routes/vendorRoutes";
+// import router from "./routes/userRoutes";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -20,10 +20,10 @@ const corsOption = {
 };
 app.use(cors(corsOption));
 
-app.use("/api/vendor/", router);
+// app.use("/api/orders/", router);
 
 connectDB();
 
 app.listen(PORT, () => {
-  console.log(`Vendor service is running on port ${PORT}`);
+  console.log(`Order service is running on port ${PORT}`);
 });

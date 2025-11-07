@@ -55,6 +55,20 @@ services:
     depends_on:
       - mongo-db
 
+  order:
+    build:
+      context: ./orderservice
+
+    container_name: order-service
+
+    ports : 
+      - "3004:3000"
+
+    environment:
+      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+    
+    depends_on:
+      - mongo-db
 
 volumes:
   mongo_data:
