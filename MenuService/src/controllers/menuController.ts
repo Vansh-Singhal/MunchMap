@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import MenuDB, { MenuItem } from "../model/Menu";
+import MenuDB, { MenuItem } from "../models/Menu";
 import { CreateMenuBody } from "../types/createMenuBody";
 import { handleError } from "../utils/handleError";
 

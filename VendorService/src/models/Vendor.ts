@@ -5,7 +5,6 @@ export interface Vendor {
   user: Types.ObjectId;
   outletName: string;
   location: string;
-  menuItems: Types.ObjectId[];
   openingHours: string;
   isOpen: boolean;
   createdAt: Date;
@@ -27,11 +26,6 @@ const VendorSchema = new Schema<Vendor>(
       type: String,
       required: true,
     },
-    menuItems: [
-      {
-        type: Schema.Types.ObjectId,
-      },
-    ],
     openingHours: {
       type: String,
     },

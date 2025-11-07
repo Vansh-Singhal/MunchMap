@@ -1,7 +1,7 @@
 export type RegisterRequestBody = {
   name: string;
   email: string;
-  contact: Number;
+  contact: number;
   password: string;
   role: string;
 };
