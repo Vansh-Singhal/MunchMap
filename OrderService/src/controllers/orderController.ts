@@ -1,15 +1,28 @@
 import { Request, Response } from "express";
-import OrderDB, { Order } from "../models/Order";
+import OrderDB, { Order, OrderItem } from "../models/Order";
 import { CreateOrderBody } from "../types/createOrderBody";
 import { handleError } from "../utils/handleError";
 
+interface AuthenticatedRequest<P = any, ResBody = any, ReqBody = any, Q = any>
+  extends Request<P, ResBody, ReqBody, Q> {
+  id?: string;
+  role?: "student" | "vendor" | "admin";
+}
+
 // Create a new order
 export const createOrder = async (
-  req: Request<{}, {}, CreateOrderBody>,
+  req: AuthenticatedRequest<CreateOrderBody>,
   res: Response
 ): Promise<Response> => {
   try {
-    const { user, vendor, items, totalPrice } = req.body;
+    const { vendor, items } = req.body;
+    if (!req.id)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const totalPrice = items.reduce(
+      (sum: number, item: OrderItem) => sum + (item.price || 0) * item.quantity,
+      0
+    );
 
     // Get today’s range for resetting order count daily
     const today = new Date();
@@ -27,7 +40,7 @@ export const createOrder = async (
 
     const newOrder = new OrderDB({
       orderNumber: nextOrderNumber,
-      user,
+      user: req.id,
       vendor,
       items,
       totalPrice,
@@ -49,7 +62,7 @@ export const createOrder = async (
 
 // Get order by ID
 export const getOrderById = async (
-  req: Request<{ orderId: string }>,
+  req: AuthenticatedRequest<{ orderId: string }>,
   res: Response
 ): Promise<Response> => {
   try {
@@ -58,7 +71,9 @@ export const getOrderById = async (
     const order: Order | null = await OrderDB.findById(orderId);
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     return res.status(200).json({
@@ -74,12 +89,13 @@ export const getOrderById = async (
 
 // Get all orders for a specific user
 export const getOrdersByUser = async (
-  req: Request<{ userId: string }>,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<Response> => {
   try {
-    const { userId } = req.params;
-    const orders: Order[] = await OrderDB.find({ user: userId }).sort({ createdAt: -1 });
+    const orders: Order[] = await OrderDB.find({ user: req.id }).sort({
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       success: true,
@@ -94,12 +110,14 @@ export const getOrdersByUser = async (
 
 // Get all orders for a specific vendor
 export const getOrdersByVendor = async (
-  req: Request<{ vendorId: string }>,
+  req: AuthenticatedRequest<{ vendorId: string }>,
   res: Response
 ): Promise<Response> => {
   try {
     const { vendorId } = req.params;
-    const orders: Order[] = await OrderDB.find({ vendor: vendorId }).sort({ createdAt: -1 });
+    const orders: Order[] = await OrderDB.find({ vendor: vendorId }).sort({
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       success: true,
@@ -114,33 +132,61 @@ export const getOrdersByVendor = async (
 
 // Update order status
 export const updateOrderStatus = async (
-  req: Request<{ orderId: string }, {}, { status: Order["status"] }>,
+  req: AuthenticatedRequest<
+    { orderId: string },
+    {},
+    { status: Order["status"] }
+  >,
   res: Response
 ): Promise<Response> => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ["pending", "accepted", "completed", "cancelled"];
+    const validStatuses: Order["status"][] = [
+      "accepted",
+      "completed",
+      "cancelled",
+      "confirmed",
+    ];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ success: false, message: "Invalid status value" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid status value" });
     }
 
-    const updatedOrder: Order | null = await OrderDB.findByIdAndUpdate(
-      orderId,
-      { status },
-      { new: true }
-    );
+    const order = await OrderDB.findById(orderId);
+    if (!order)
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
 
-    if (!updatedOrder) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+    // Allowed transitions
+    const allowedTransitions: Record<string, string[]> = {
+      confirmed: ["accepted", "cancelled"],
+      accepted: ["completed", "cancelled"],
+      pending: ["cancelled"], // if user cancels before payment
+    };
+
+    if (!allowedTransitions[order.status]?.includes(status)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `Cannot change status from ${order.status} to ${status}`,
+        });
     }
+
+    order.status = status;
+    await order.save();
 
     return res.status(200).json({
       success: true,
       message: `Order status updated to ${status}`,
-      order: updatedOrder,
+      order,
     });
+
+
   } catch (err: unknown) {
     if (err instanceof Error) return handleError(res, err.message);
     return handleError(res);
@@ -148,7 +194,10 @@ export const updateOrderStatus = async (
 };
 
 // Get all orders (admin/debug route)
-export const getAllOrders = async (_: Request, res: Response): Promise<Response> => {
+export const getAllOrders = async (
+  _: AuthenticatedRequest,
+  res: Response
+): Promise<Response> => {
   try {
     const orders: Order[] = await OrderDB.find().sort({ createdAt: -1 });
 

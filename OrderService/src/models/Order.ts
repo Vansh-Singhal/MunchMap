@@ -2,8 +2,8 @@ import { Schema, model, Types } from "mongoose";
 
 export interface OrderItem {
   menuItemId: Types.ObjectId;
-  name?: string; // optional caching of item name for quick lookup
-  price?: number; // optional for total price snapshot
+  name: string;
+  price: number;
   quantity: number;
 }
 
@@ -14,7 +14,7 @@ export interface Order {
   vendor: Types.ObjectId;
   items: OrderItem[];
   totalPrice: number;
-  status: "pending" | "accepted" | "completed" | "cancelled";
+  status: "pending" | "accepted" | "completed" | "cancelled" | "confirmed";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,7 +35,7 @@ const OrderSchema = new Schema<Order>(
     totalPrice: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "completed", "cancelled"],
+      enum: ["pending", "accepted", "completed", "cancelled", "confirmed"],
       default: "pending",
     },
   },

@@ -3,16 +3,21 @@ import MenuDB, { MenuItem } from "../models/Menu";
 import { CreateMenuBody } from "../types/createMenuBody";
 import { handleError } from "../utils/handleError";
 
+interface AuthenticatedRequest<T = any> extends Request {
+  id?: string;
+  role?: "vendor" | "admin";
+  body: T;
+}
+
 // Create a new menu item
 export const createMenuItem = async (
-  req: Request<{}, {}, CreateMenuBody>,
+  req: AuthenticatedRequest<CreateMenuBody>,
   res: Response
 ): Promise<Response> => {
   try {
-    const { vendor, name, description, price, category, imageUrl, isAvailable } = req.body;
-
+    const { name, description, price, category, imageUrl, isAvailable } = req.body;
     const newMenuItem = new MenuDB({
-      vendor,
+      vendor : req.id,
       name,
       description,
       price,
@@ -36,7 +41,7 @@ export const createMenuItem = async (
 
 // Get all menu items for a vendor
 export const getMenuItemsByVendor = async (
-  req: Request<{ vendorId: string }>,
+  req: AuthenticatedRequest<{ vendorId: string }>,
   res: Response
 ): Promise<Response> => {
   try {
@@ -56,7 +61,7 @@ export const getMenuItemsByVendor = async (
 
 // Get a single menu item by ID
 export const getMenuItemById = async (
-  req: Request<{ menuId: string }>,
+  req: AuthenticatedRequest<{ menuId: string }>,
   res: Response
 ): Promise<Response> => {
   try {
@@ -79,7 +84,7 @@ export const getMenuItemById = async (
 
 // Update a menu item
 export const updateMenuItem = async (
-  req: Request<{ menuId: string }>,
+  req: AuthenticatedRequest<{ menuId: string }>,
   res: Response
 ): Promise<Response> => {
   try {
@@ -106,7 +111,7 @@ export const updateMenuItem = async (
 
 // Delete a menu item
 export const deleteMenuItem = async (
-  req: Request<{ menuId: string }>,
+  req: AuthenticatedRequest<{ menuId: string }>,
   res: Response
 ): Promise<Response> => {
   try {

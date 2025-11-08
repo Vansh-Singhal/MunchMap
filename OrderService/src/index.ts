@@ -8,7 +8,7 @@ const app = express();
 import { PORT } from "./utils/config";
 import connectDB from "./config/dbconfig";
 
-// import router from "./routes/userRoutes";
+import router from "./routes/orderRouter";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -20,7 +20,7 @@ const corsOption = {
 };
 app.use(cors(corsOption));
 
-// app.use("/api/orders/", router);
+app.use("/api/orders/", router);
 
 connectDB();
 

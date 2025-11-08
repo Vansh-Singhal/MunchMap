@@ -26,7 +26,7 @@ export const protect = async (
   if (!token) {
     return res.status(401).json({
       success: false,
-      message: "Not authorized, invalid token",
+      message: "Not authorized, no token",
     });
   }
 
@@ -47,9 +47,7 @@ export const protect = async (
 
 export const isVendor = (req: any, res: Response, next: NextFunction) => {
   if (req.role === "student") {
-    return res
-      .status(403)
-      .json({ success: false, message: "Authorization required" });
+    return res.status(403).json({ success: false, message: "Invalid authorization" });
   }
   return next();
 };
