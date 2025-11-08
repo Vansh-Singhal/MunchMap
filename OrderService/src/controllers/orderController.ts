@@ -165,16 +165,13 @@ export const updateOrderStatus = async (
     const allowedTransitions: Record<string, string[]> = {
       confirmed: ["accepted", "cancelled"],
       accepted: ["completed", "cancelled"],
-      pending: ["cancelled"], // if user cancels before payment
     };
 
     if (!allowedTransitions[order.status]?.includes(status)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Cannot change status from ${order.status} to ${status}`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Cannot change status from ${order.status} to ${status}`,
+      });
     }
 
     order.status = status;
@@ -185,8 +182,6 @@ export const updateOrderStatus = async (
       message: `Order status updated to ${status}`,
       order,
     });
-
-
   } catch (err: unknown) {
     if (err instanceof Error) return handleError(res, err.message);
     return handleError(res);
@@ -206,6 +201,30 @@ export const getAllOrders = async (
       message: "All orders retrieved successfully",
       orders,
     });
+  } catch (err: unknown) {
+    if (err instanceof Error) return handleError(res, err.message);
+    return handleError(res);
+  }
+};
+
+export const updateToConfirmed = async (
+  req: AuthenticatedRequest<{ orderId: string }>,
+  res: Response
+): Promise<Response> => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await OrderDB.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    if (order.status !== "pending") {
+      return res.status(400).json({ success: false, message: "Payment already confirmed or order processed" });
+    }
+
+    order.status = "confirmed";
+    await order.save();
+
+    return res.status(200).json({ success: true, message: "Status updated to confirmed", order });
   } catch (err: unknown) {
     if (err instanceof Error) return handleError(res, err.message);
     return handleError(res);

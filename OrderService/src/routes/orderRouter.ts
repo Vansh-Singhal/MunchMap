@@ -4,7 +4,8 @@ import {
   getOrderById,
   getOrdersByUser,
   getOrdersByVendor,
-  updateOrderStatus
+  updateOrderStatus,
+  updateToConfirmed
 } from "../controllers/orderController";
 import { isVendor, protect } from "../middlewares/authMiddleware";
 
@@ -30,5 +31,9 @@ router.get("/vendor/:vendorId",isVendor, getOrdersByVendor);
 // Update order status (confirmed, accepted, completed, cancelled)
 // PATCH /order/status/orderid
 router.patch("/status/:orderId/",isVendor , updateOrderStatus);
+
+// Update order status from pending to confirmed
+// PATCH /order/confirm/orderid
+router.patch("/confirm/:orderId/", updateToConfirmed);
 
 export default router;
