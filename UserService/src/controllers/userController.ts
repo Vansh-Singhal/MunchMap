@@ -29,7 +29,6 @@ export const updateCurrentUser = async (req: AuthRequest, res: Response) => {
   try {
     const updates = {
       name: req.body.name,
-      email: req.body.email,
       contact: req.body.contact,
     };
 

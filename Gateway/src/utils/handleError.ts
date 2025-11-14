@@ -1,9 +1,15 @@
-import { Response } from "express";
+import axios from 'axios';
 
-export const handleError = (
-  res: Response,
-  message = "Internal Server Error",
-  status = 500
-): Response => {
-  return res.status(status).json({ success: false, message });
+export const handleError = (error: any) => {
+  if (axios.isAxiosError(error)) {
+    // Axios error handling
+    console.error(`Axios error: ${error.message}`);
+    if (error.response) {
+      return { success: false, message: error.response.data.message || "Something went wrong" };
+    }
+  } else {
+    // General error handling
+    console.error(`Unknown error: ${error.message || error}`);
+  }
+  return { success: false, message: "Internal server error" };
 };
