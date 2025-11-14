@@ -70,5 +70,21 @@ services:
     depends_on:
       - mongo-db
 
+  gateway:
+    build:
+      context: ./gateway
+
+    container_name: gateway-service
+
+    ports : 
+      - "3000:3000"
+
+    # environment:
+    #   MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+    
+    # depends_on:
+    #   - mongo-db
+
+
 volumes:
   mongo_data:
