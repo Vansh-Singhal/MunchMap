@@ -4,7 +4,6 @@ import UserDB, { User } from "../models/User";
 import { generateToken } from "../utils/generateToken";
 import { RegisterRequestBody } from "../types/RegisterReq";
 import { LoginRequestBody } from "../types/LoginReq";
-import { LoggedUser } from "../types/LoggedUser";
 
 export const registerUser = async (
   req: Request<{}, {}, RegisterRequestBody>,
@@ -42,12 +41,7 @@ export const registerUser = async (
 
     return res.status(201).json({
       message: "Account created successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user,
       success: true,
     });
   } catch (error: any) {
@@ -72,23 +66,23 @@ export const loginUser = async (
       });
     }
 
-    const userDoc: User | null = await UserDB.findOne({ email });
+    const user: User | null = await UserDB.findOne({ email });
 
-    if (!userDoc) {
+    if (!user) {
       return res.status(400).json({
         message: "Email or Password Incorrect",
         success: false,
       });
     }
 
-    if (role !== userDoc.role) {
+    if (role !== user.role) {
       return res.status(400).json({
         message: "Account does not exist for role",
         success: false,
       });
     }
 
-    const isMatch = await bcrypt.compare(password, userDoc.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -97,22 +91,15 @@ export const loginUser = async (
       });
     }
 
-    const token = generateToken(userDoc as User);
-
-    const user: LoggedUser = {
-      id: userDoc._id.toString(),
-      name: userDoc.name,
-      email: userDoc.email,
-      role: userDoc.role,
-      contact: userDoc.contact,
-    };
+    const token = generateToken(user as User);
 
     return res
       .status(200)
       .cookie("token", token, {
         maxAge: 24 * 60 * 60 * 1000,
         httpOnly: true,
-        sameSite: "strict",
+        sameSite: "none",
+        secure: true,
       })
       .json({
         message: `Welcome back, ${user.name}`,

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { handleError } from "../../utils/handleError";
-const base_url = process.env.USER_SERVICE_URL;
+const USER_SERVICE = process.env.USER_SERVICE_URL;
 
 const buildCookieHeader = (ctx: any) =>
   Object.entries(ctx.cookies || {})
@@ -12,8 +12,8 @@ export default {
   // POST /auth/register
   registerUser: async (input: any, ctx?: any) => {
     try {
-      const res = await axios.post(`${base_url}/auth/register`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+      const res = await axios.post(`${USER_SERVICE}/auth/register`, input, {
+        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -25,15 +25,18 @@ export default {
 
   // POST /auth/login
   loginUser: async (input: any, ctx: any) => {
-    console.log(base_url);
     try {
-        console.log(`${base_url}/auth/login`);
-      const res = await axios.post(`${base_url}/auth/login`, input, {
+      const res = await axios.post(`${USER_SERVICE}/auth/login`, input, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,
       });
-      console.log(res);
+
+      const setCookie = res.headers["set-cookie"];
+      if (setCookie) {
+        ctx.res.setHeader("Set-Cookie", setCookie);
+      }
+
       return res.data;
     } catch (error) {
       return handleError(error);
@@ -43,7 +46,7 @@ export default {
   // GET /auth/logout
   logoutUser: async (ctx: any) => {
     try {
-      const res = await axios.get(`${base_url}/auth/logout`, {
+      const res = await axios.get(`${USER_SERVICE}/auth/logout`, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,

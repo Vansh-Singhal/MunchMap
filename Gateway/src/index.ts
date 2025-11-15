@@ -2,12 +2,13 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+dotenv.config();
+
 import { createApolloGraphqlServer } from "./graphql/createApolloGraphqlServer";
 import { buildContext } from "./graphql/context";
 import { expressMiddleware } from "@as-integrations/express5";
 import { PORT } from "./utils/config";
 
-dotenv.config();
 
 const app = express();
 
@@ -26,7 +27,9 @@ const init = async () => {
   app.use(
     "/graphql",
     expressMiddleware(apolloserver, {
-      context: buildContext,
+      context: async ({ req, res }) => {
+        return buildContext({ req, res });
+      },
     })
   );
 

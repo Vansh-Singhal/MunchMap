@@ -12,12 +12,13 @@ export default {
   // GET /user/me
   getMe: async (ctx: any) => {
     try {
-      const res = await axios.get(`${USER_SERVICE}/user/me`, {
+      const res = await axios.get(`${USER_SERVICE}/users/me`, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000, // Set a timeout for the request (5 seconds)
       });
-      return res.data.user;
+      console.log(res.data);
+      return res.data;
     } catch (error) {
       return handleError(error);
     }

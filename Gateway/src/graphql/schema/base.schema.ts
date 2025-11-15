@@ -5,7 +5,7 @@ export default `#graphql
   }
 
   type User {
-    id: ID!
+    _id: ID!
     name: String!
     email: String!
     role: String!

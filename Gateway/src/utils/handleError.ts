@@ -4,6 +4,7 @@ export const handleError = (error: any) => {
   if (axios.isAxiosError(error)) {
     // Axios error handling
     console.error(`Axios error: ${error.message}`);
+    console.log(error);
     if (error.response) {
       return { success: false, message: error.response.data.message || "Something went wrong" };
     }
