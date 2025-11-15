@@ -17,72 +17,16 @@ export default {
         withCredentials: true,
         timeout: 5000, // Set a timeout for the request (5 seconds)
       });
-      console.log(res.data);
       return res.data;
     } catch (error) {
       return handleError(error);
     }
   },
 
-  // POST /auth/register
-  register: async (input: any) => {
-    try {
-      const res = await axios.post(`${USER_SERVICE}/auth/register`, input, {
-        withCredentials: true,
-        timeout: 5000,
-      });
-      return res.data;
-    } catch (error) {
-      return handleError(error);
-    }
-  },
-
-  // POST /auth/login
-  login: async (input: any, ctx: any) => {
-    try {
-      const res = await axios.post(`${USER_SERVICE}/auth/login`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
-        withCredentials: true,
-        timeout: 5000,
-      });
-      return res.data;
-    } catch (error) {
-      return handleError(error);
-    }
-  },
-
-  // GET /auth/logout
-  logout: async (ctx: any) => {
-    try {
-      const res = await axios.get(`${USER_SERVICE}/auth/logout`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
-        withCredentials: true,
-        timeout: 5000,
-      });
-      return res.data;
-    } catch (error) {
-      return handleError(error);
-    }
-  },
-
-  // PUT /user/me
+  // PUT /users/me
   updateMe: async (input: any, ctx: any) => {
     try {
-      const res = await axios.put(`${USER_SERVICE}/user/me`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
-        withCredentials: true,
-        timeout: 5000,
-      });
-      return res.data.user;
-    } catch (error) {
-      return handleError(error);
-    }
-  },
-
-  // PUT /user/me/password
-  updatePassword: async (input: any, ctx: any) => {
-    try {
-      const res = await axios.put(`${USER_SERVICE}/user/me/password`, input, {
+      const res = await axios.put(`${USER_SERVICE}/users/me`, input, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,
@@ -93,10 +37,24 @@ export default {
     }
   },
 
-  // DELETE /user/me
+  // PUT /users/me/password
+  updatePassword: async (input: any, ctx: any) => {
+    try {
+      const res = await axios.put(`${USER_SERVICE}/users/me/password`, input, {
+        headers: { Cookie: buildCookieHeader(ctx) },
+        withCredentials: true,
+        timeout: 5000,
+      });
+      return res.data;
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+
+  // DELETE /users/me
   deleteAccount: async (ctx: any) => {
     try {
-      const res = await axios.delete(`${USER_SERVICE}/user/me`, {
+      const res = await axios.delete(`${USER_SERVICE}/users/me`, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,
