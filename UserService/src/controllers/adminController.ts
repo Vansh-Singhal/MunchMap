@@ -25,6 +25,7 @@ export const getAllUsers = async (_: Request, res: Response) => {
 export const getUserById = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.id!;
+    console.log(userId);
 
     if (!Types.ObjectId.isValid(userId)) {
       return res

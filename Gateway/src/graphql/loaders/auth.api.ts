@@ -1,12 +1,10 @@
 import axios from "axios";
-import { handleError } from "../../utils/handleError";
+import { handleError } from "../utils/handleError";
+import {
+  buildCookieHeader,
+  setResponseCookies,
+} from "../utils/buildCookieHeader";
 const USER_SERVICE = process.env.USER_SERVICE_URL;
-
-const buildCookieHeader = (ctx: any) =>
-  Object.entries(ctx.cookies || {})
-    .map(([k, v]) => `${k}=${v}`)
-    .join("; ");
-
 
 export default {
   // POST /auth/register
@@ -31,12 +29,7 @@ export default {
         withCredentials: true,
         timeout: 5000,
       });
-
-      const setCookie = res.headers["set-cookie"];
-      if (setCookie) {
-        ctx.res.setHeader("Set-Cookie", setCookie);
-      }
-
+      setResponseCookies(ctx, res);
       return res.data;
     } catch (error) {
       return handleError(error);
@@ -51,6 +44,7 @@ export default {
         withCredentials: true,
         timeout: 5000,
       });
+      setResponseCookies(ctx, res);
       return res.data;
     } catch (error) {
       return handleError(error);

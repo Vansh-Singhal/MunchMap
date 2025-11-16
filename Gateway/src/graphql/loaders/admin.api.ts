@@ -1,19 +1,16 @@
 import axios from "axios";
 import { handleError } from "../utils/handleError";
-import {
-  buildCookieHeader,
-  setResponseCookies,
-} from "../utils/buildCookieHeader";
+import { buildCookieHeader } from "../utils/buildCookieHeader";
 const USER_SERVICE = process.env.USER_SERVICE_URL;
 
 export default {
-  // GET /user/me
-  getMe: async (ctx: any) => {
+  // PUT /admin/users/{id}
+  updateUserById: async (id: string, input: any, ctx?: any) => {
     try {
-      const res = await axios.get(`${USER_SERVICE}/users/me`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+      const res = await axios.put(`${USER_SERVICE}/admin/users/${id}`, input, {
+        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
         withCredentials: true,
-        timeout: 5000, // Set a timeout for the request (5 seconds)
+        timeout: 5000,
       });
       return res.data;
     } catch (error) {
@@ -21,10 +18,24 @@ export default {
     }
   },
 
-  // PUT /users/me
-  updateMe: async (input: any, ctx: any) => {
+  // POST /admin/users/{id}
+  deleteUserById: async (id: string, ctx?: any) => {
     try {
-      const res = await axios.put(`${USER_SERVICE}/users/me`, input, {
+      const res = await axios.delete(`${USER_SERVICE}/admin/users/${id}`, {
+        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
+        withCredentials: true,
+        timeout: 5000,
+      });
+      return res.data;
+    } catch (error) {
+      return handleError(error);
+    }
+  },
+
+  // GET /admin/users
+  fetchAllUsers: async (ctx: any) => {
+    try {
+      const res = await axios.get(`${USER_SERVICE}/admin/users`, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,
@@ -35,31 +46,14 @@ export default {
     }
   },
 
-  // PUT /users/me/password
-  updatePassword: async (input: any, ctx: any) => {
+  // GET /admin/users/{id}
+  fetchUser: async (id: any, ctx: any) => {
     try {
-      const res = await axios.put(`${USER_SERVICE}/users/me/password`, input, {
+      const res = await axios.get(`${USER_SERVICE}/admin/users/${id}`, {
         headers: { Cookie: buildCookieHeader(ctx) },
         withCredentials: true,
         timeout: 5000,
       });
-      return res.data;
-    } catch (error) {
-      return handleError(error);
-    }
-  },
-
-  // DELETE /users/me
-  deleteAccount: async (ctx: any) => {
-    try {
-      const res = await axios.delete(`${USER_SERVICE}/users/me`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
-        withCredentials: true,
-        timeout: 5000,
-      });
-
-      setResponseCookies(ctx, res);
-
       return res.data;
     } catch (error) {
       return handleError(error);

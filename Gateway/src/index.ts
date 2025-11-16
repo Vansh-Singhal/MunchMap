@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { createApolloGraphqlServer } from "./graphql/createApolloGraphqlServer";
-import { buildContext } from "./graphql/context";
+import { buildContext } from "./utils/context";
 import { expressMiddleware } from "@as-integrations/express5";
 import { PORT } from "./utils/config";
 
