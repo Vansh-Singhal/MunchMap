@@ -1,14 +1,25 @@
 import axios from "axios";
 import { handleError } from "../utils/handleError";
 import { buildCookieHeader } from "../utils/buildCookieHeader";
-const USER_SERVICE = process.env.USER_SERVICE_URL;
+import {
+  AdminResponse,
+  BasicResponse,
+  UpdateUserInput,
+  UserResponse,
+} from "../../types/user.types";
+import { GQLContext } from "../../utils/context";
+const USER_SERVICE = process.env.USER_SERVICE_URL as string;
 
 export default {
   // PUT /admin/users/{id}
-  updateUserById: async (id: string, input: any, ctx?: any) => {
+  updateUserById: async (
+    id: string,
+    input: UpdateUserInput,
+    ctx: GQLContext
+  ): Promise<UserResponse> => {
     try {
       const res = await axios.put(`${USER_SERVICE}/admin/users/${id}`, input, {
-        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -19,10 +30,13 @@ export default {
   },
 
   // POST /admin/users/{id}
-  deleteUserById: async (id: string, ctx?: any) => {
+  deleteUserById: async (
+    id: string,
+    ctx: GQLContext
+  ): Promise<BasicResponse> => {
     try {
       const res = await axios.delete(`${USER_SERVICE}/admin/users/${id}`, {
-        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -33,10 +47,10 @@ export default {
   },
 
   // GET /admin/users
-  fetchAllUsers: async (ctx: any) => {
+  fetchAllUsers: async (ctx: GQLContext): Promise<AdminResponse> => {
     try {
       const res = await axios.get(`${USER_SERVICE}/admin/users`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -47,10 +61,10 @@ export default {
   },
 
   // GET /admin/users/{id}
-  fetchUser: async (id: any, ctx: any) => {
+  fetchUser: async (id: string, ctx: GQLContext): Promise<UserResponse> => {
     try {
       const res = await axios.get(`${USER_SERVICE}/admin/users/${id}`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });

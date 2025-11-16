@@ -4,14 +4,24 @@ import {
   buildCookieHeader,
   setResponseCookies,
 } from "../utils/buildCookieHeader";
-const USER_SERVICE = process.env.USER_SERVICE_URL;
+import {
+  BasicResponse,
+  LoginUserInput,
+  RegisterUserInput,
+  UserResponse,
+} from "../../types/user.types";
+import { GQLContext } from "../../utils/context";
+const USER_SERVICE = process.env.USER_SERVICE_URL as string;
 
 export default {
   // POST /auth/register
-  registerUser: async (input: any, ctx?: any) => {
+  registerUser: async (
+    input: RegisterUserInput,
+    ctx: GQLContext
+  ): Promise<UserResponse> => {
     try {
       const res = await axios.post(`${USER_SERVICE}/auth/register`, input, {
-        headers: { Cookie: buildCookieHeader({ cookies: ctx.req.cookies }) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -22,10 +32,13 @@ export default {
   },
 
   // POST /auth/login
-  loginUser: async (input: any, ctx: any) => {
+  loginUser: async (
+    input: LoginUserInput,
+    ctx: GQLContext
+  ): Promise<UserResponse<{ token?: string }>> => {
     try {
       const res = await axios.post(`${USER_SERVICE}/auth/login`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -37,14 +50,16 @@ export default {
   },
 
   // GET /auth/logout
-  logoutUser: async (ctx: any) => {
+  logoutUser: async (ctx: GQLContext): Promise<BasicResponse> => {
     try {
       const res = await axios.get(`${USER_SERVICE}/auth/logout`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
+
       setResponseCookies(ctx, res);
+
       return res.data;
     } catch (error) {
       return handleError(error);

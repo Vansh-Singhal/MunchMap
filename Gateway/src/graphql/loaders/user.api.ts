@@ -4,14 +4,21 @@ import {
   buildCookieHeader,
   setResponseCookies,
 } from "../utils/buildCookieHeader";
-const USER_SERVICE = process.env.USER_SERVICE_URL;
+import {
+  BasicResponse,
+  UpdatePasswordInput,
+  UpdateUserInput,
+  UserResponse,
+} from "../../types/user.types";
+import { GQLContext } from "../../utils/context";
+const USER_SERVICE = process.env.USER_SERVICE_URL as string;
 
 export default {
-  // GET /user/me
-  getMe: async (ctx: any) => {
+  // GET /users/me
+  getMe: async (ctx: GQLContext): Promise<UserResponse> => {
     try {
       const res = await axios.get(`${USER_SERVICE}/users/me`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000, // Set a timeout for the request (5 seconds)
       });
@@ -22,10 +29,13 @@ export default {
   },
 
   // PUT /users/me
-  updateMe: async (input: any, ctx: any) => {
+  updateMe: async (
+    input: UpdateUserInput,
+    ctx: GQLContext
+  ): Promise<UserResponse> => {
     try {
       const res = await axios.put(`${USER_SERVICE}/users/me`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -36,10 +46,13 @@ export default {
   },
 
   // PUT /users/me/password
-  updatePassword: async (input: any, ctx: any) => {
+  updatePassword: async (
+    input: UpdatePasswordInput,
+    ctx: GQLContext
+  ): Promise<BasicResponse> => {
     try {
       const res = await axios.put(`${USER_SERVICE}/users/me/password`, input, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
@@ -50,10 +63,10 @@ export default {
   },
 
   // DELETE /users/me
-  deleteAccount: async (ctx: any) => {
+  deleteAccount: async (ctx: GQLContext): Promise<BasicResponse> => {
     try {
       const res = await axios.delete(`${USER_SERVICE}/users/me`, {
-        headers: { Cookie: buildCookieHeader(ctx) },
+        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
         withCredentials: true,
         timeout: 5000,
       });
