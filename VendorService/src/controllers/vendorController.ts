@@ -1,140 +1,145 @@
-import { Request, Response } from "express";
-import VendorDB, { Vendor } from "../models/Vendor";
-import { CreateVendorBody } from "../types/createVendorBody";
-import { handleError } from "../utils/handleError";
+import { Response } from "express";
+import VendorDB from "../models/Vendor";
+import { CreateVendorBody, UpdateVendorBody, VendorListQuery } from "../types/createVendorBody";
+import { VendorAuthRequest } from "../types/authRequest";
+import { handleError, handleVendorError } from "../utils/handleError";
 
-// Create a new vendor
+// Every response excludes the account association. Outlet _id remains public.
+const publicFields = "-user -__v";
+const visibleOutlets = (req: VendorAuthRequest) => req.viewerRole === "admin" ? {} : { isActive: true };
+
 export const createVendor = async (
-  req: Request<{}, {}, CreateVendorBody>,
+  req: VendorAuthRequest<Record<string, string>, CreateVendorBody>,
   res: Response
 ): Promise<Response> => {
+  if (!req.vendorUserId) return handleError(res, "Authentication required", 401);
   try {
-    const { user, outletName, location, openingHours } = req.body;
-
-    // Check if a vendor already exists for the user
-    const existingVendor: Vendor | null = await VendorDB.findOne({ user });
-    if (existingVendor) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Vendor already exists for this user" });
-    }
-
-    const vendor = new VendorDB({
-      user,
-      outletName,
-      location,
-      openingHours,
-      isOpen: true,
+    // The unique user index enforces one outlet even for simultaneous requests.
+    const vendor = await VendorDB.create({
+      ...req.body,
+      user: req.vendorUserId,
+      isOpen: false,
+      isActive: false,
     });
-
-    const savedVendor: Vendor = await vendor.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Vendor created successfully",
-      vendor: savedVendor,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error) return handleError(res, err.message);
-    return handleError(res);
+    const { user: _user, __v: _version, ...outlet } = vendor.toObject();
+    return res.status(201).json({ success: true, message: "Vendor created successfully", vendor: outlet });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
   }
 };
 
-// Get vendor by user ID
+export const getMyVendor = async (req: VendorAuthRequest, res: Response): Promise<Response> => {
+  if (!req.vendorUserId) return handleError(res, "Authentication required", 401);
+  try {
+    const vendor = await VendorDB.findOne({ user: req.vendorUserId }).select(publicFields);
+    if (!vendor) return handleError(res, "Vendor not found", 404);
+    return res.status(200).json({ success: true, message: "Vendor retrieved successfully", vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
+  }
+};
+
 export const getVendorByUserId = async (
-  req: Request<{ userId: string }>,
-  res: Response
+  req: VendorAuthRequest<{ userId: string }>, res: Response
 ): Promise<Response> => {
   try {
-    const { userId } = req.params;
-    const vendor: Vendor | null = await VendorDB.findOne({ user: userId });
-
-    if (!vendor) {
-      return res.status(404).json({ success: false, message: "Vendor not found" });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Vendor retrieved successfully",
-      vendor,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error) return handleError(res, err.message);
-    return handleError(res);
+    const vendor = await VendorDB.findOne({ user: req.params.userId, ...visibleOutlets(req) }).select(publicFields);
+    if (!vendor) return handleError(res, "Vendor not found", 404);
+    return res.status(200).json({ success: true, message: "Vendor retrieved successfully", vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
   }
 };
 
-// Get all vendors
-export const getAllVendors = async (_: Request, res: Response): Promise<Response> => {
+export const getVendorById = async (
+  req: VendorAuthRequest<{ vendorId: string }>, res: Response
+): Promise<Response> => {
   try {
-    const vendors: Vendor[] = await VendorDB.find();
-
-    return res.status(200).json({
-      success: true,
-      message: "Vendors retrieved successfully",
-      vendors,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error) return handleError(res, err.message);
-    return handleError(res);
+    const vendor = await VendorDB.findOne({ _id: req.params.vendorId, ...visibleOutlets(req) }).select(publicFields);
+    if (!vendor) return handleError(res, "Vendor not found", 404);
+    return res.status(200).json({ success: true, message: "Vendor retrieved successfully", vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
   }
 };
 
-// Update vendor info
+export const getAllVendors = async (req: VendorAuthRequest, res: Response): Promise<Response> => {
+  try {
+    const { offset, limit }: VendorListQuery = res.locals.validatedQuery;
+    const filter = visibleOutlets(req);
+    const [vendors, total] = await Promise.all([
+      VendorDB.find(filter).sort({ _id: 1 }).skip(offset).limit(limit).select(publicFields),
+      VendorDB.countDocuments(filter),
+    ]);
+    return res.status(200).json({
+      success: true, message: "Vendors retrieved successfully", vendors,
+      total, offset, limit, count: vendors.length,
+    });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
+  }
+};
+
 export const updateVendor = async (
-  req: Request<{ vendorId: string }>,
-  res: Response
+  req: VendorAuthRequest<{ vendorId: string }, UpdateVendorBody>, res: Response
 ): Promise<Response> => {
+  if (!req.vendorUserId) return handleError(res, "Authentication required", 401);
   try {
-    const { vendorId } = req.params;
-
-    const updatedVendor: Vendor | null = await VendorDB.findByIdAndUpdate(
-      vendorId,
-      req.body,
-      { new: true }
-    );
-
-    if (!updatedVendor) {
-      return res.status(404).json({ success: false, message: "Vendor not found" });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Vendor updated successfully",
-      vendor: updatedVendor,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error) return handleError(res, err.message);
-    return handleError(res);
+    const vendor = await VendorDB.findOneAndUpdate(
+      { _id: req.params.vendorId, user: req.vendorUserId },
+      { $set: req.body },
+      { new: true, runValidators: true }
+    ).select(publicFields);
+    if (!vendor) return handleError(res, "Owned outlet not found", 404);
+    return res.status(200).json({ success: true, message: "Vendor updated successfully", vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
   }
 };
 
-// Update the vendor status
-export const updateVendorStatus = async (
-  req: Request<{ vendorId: string }, {}, { isOpen: boolean }>,
-  res: Response
+const setVendorActivation = async (
+  req: VendorAuthRequest<{ vendorId: string }>, res: Response, isActive: boolean
 ): Promise<Response> => {
+  if (!req.vendorUserId) return handleError(res, "Authentication required", 401);
   try {
-    const { vendorId } = req.params;
-    const { isOpen } = req.body;
+    const vendor = await VendorDB.findOneAndUpdate(
+      { _id: req.params.vendorId, user: req.vendorUserId },
+      { $set: isActive ? { isActive: true } : { isActive: false, isOpen: false } },
+      { new: true, runValidators: true }
+    ).select(publicFields);
+    if (!vendor) return handleError(res, "Owned outlet not found", 404);
+    return res.status(200).json({ success: true, message: `Vendor ${isActive ? "activated" : "deactivated"} successfully`, vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
+  }
+};
 
-    const updatedVendor: Vendor | null = await VendorDB.findByIdAndUpdate(
-      vendorId,
-      { isOpen },
-      { new: true }
-    );
+export const activateVendor = (req: VendorAuthRequest<{ vendorId: string }>, res: Response): Promise<Response> =>
+  setVendorActivation(req, res, true);
 
-    if (!updatedVendor) {
-      return res.status(404).json({ success: false, message: "Vendor not found" });
+export const deactivateVendor = (req: VendorAuthRequest<{ vendorId: string }>, res: Response): Promise<Response> =>
+  setVendorActivation(req, res, false);
+
+export const updateVendorStatus = async (
+  req: VendorAuthRequest<{ vendorId: string }, { isOpen: boolean }>, res: Response
+): Promise<Response> => {
+  if (!req.vendorUserId) return handleError(res, "Authentication required", 401);
+  try {
+    const vendor = await VendorDB.findOneAndUpdate(
+      { _id: req.params.vendorId, user: req.vendorUserId,
+        ...(req.body.isOpen ? { isActive: true } : {}) },
+      { $set: { isOpen: req.body.isOpen } },
+      { new: true, runValidators: true }
+    ).select(publicFields);
+    if (!vendor) {
+      const ownedOutlet = await VendorDB.findOne({ _id: req.params.vendorId, user: req.vendorUserId }).select("isActive");
+      if (ownedOutlet && req.body.isOpen && !ownedOutlet.isActive) {
+        return handleError(res, "Activate the outlet before opening it", 409);
+      }
+      return handleError(res, "Owned outlet not found", 404);
     }
-
-    return res.status(200).json({
-      success: true,
-      message: `Vendor status updated to ${isOpen ? "open" : "closed"}`,
-      vendor: updatedVendor,
-    });
-  } catch (err: unknown) {
-    if (err instanceof Error) return handleError(res, err.message);
-    return handleError(res);
+    return res.status(200).json({ success: true, message: `Vendor status updated to ${vendor.isOpen ? "open" : "closed"}`, vendor });
+  } catch (error: unknown) {
+    return handleVendorError(res, error);
   }
 };

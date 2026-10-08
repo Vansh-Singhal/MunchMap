@@ -27,7 +27,7 @@ Services must not import another service's controllers or Mongoose models, or di
 flowchart TD
     Client[External client - not included] --> Gateway[GraphQL Gateway]
     Gateway -->|Implemented REST delegation| User[UserService]
-    Client -->|Available REST API| Vendor[VendorService]
+    Gateway -->|Implemented REST delegation| Vendor[VendorService]
     Client -->|Available REST API| Menu[MenuService]
     Client -->|Available REST API| Order[OrderService]
     User --> Mongo[(Shared MongoDB instance)]
@@ -37,7 +37,7 @@ flowchart TD
     Payment[PaymentService - placeholder]
 ```
 
-Only user/auth/admin operations are currently exposed through GraphQL. Vendor, menu, and order services have REST endpoints but no gateway modules yet. The client arrows describe API access, not an existing frontend. The gateway uses REST adapters, not Apollo Federation.
+User/auth/admin and vendor operations are exposed through GraphQL. Menu and order services have REST endpoints but no gateway modules yet. The client arrows describe API access, not an existing frontend. The gateway uses REST adapters, not Apollo Federation.
 
 ## 2. Domain service layout: follow STRICTLY
 
@@ -59,7 +59,7 @@ Only user/auth/admin operations are currently exposed through GraphQL. Vendor, m
     middlewares/          MenuService and OrderService's existing spelling
 ```
 
-The middleware folders above are service-specific alternatives, not two folders to create in every service. `VendorService` currently has no authentication middleware folder; `PaymentService` has no `src` implementation. Preserve the established spelling in each existing service rather than creating parallel folders or renaming them incidentally.
+The middleware folders above are service-specific alternatives, not two folders to create in every service. `VendorService`, `MenuService`, and `OrderService` use `middlewares/`; `UserService` uses `middleware/`. `PaymentService` has no `src` implementation. Preserve the established spelling in each existing service rather than creating parallel folders or renaming them incidentally.
 
 | Location | Responsibility | Placement rule |
 | --- | --- | --- |
@@ -93,21 +93,26 @@ Gateway/src/
       auth.schema.ts
       user.schema.ts
       admin.schema.ts
+      vendor.schema.ts
       index.ts
     resolvers/
       auth.resolver.ts
       user.resolver.ts
       admin.resolver.ts
+      vendor.resolver.ts
       index.ts
     loaders/
       auth.api.ts
       user.api.ts
       admin.api.ts
+      vendor.api.ts
     utils/
       buildCookieHeader.ts
       handleError.ts
   types/
     user.types.ts
+    vendor.types.ts
+    apiError.types.ts
   utils/
     context.ts
     config.ts
@@ -139,6 +144,8 @@ Gateway/src/
 - Follow the existing five-second request timeout unless the task calls for a deliberate change.
 - Use `graphql/utils/handleError.ts` for the existing downstream-error response convention.
 - Read service base URLs from runtime configuration. User-service adapters append `/auth`, `/users`, and `/admin`, so `USER_SERVICE_URL` must include the service's `/api` prefix.
+- Vendor adapters read `VENDOR_SERVICE_URL`, including `/api/vendor`. Forward the existing token cookie for every vendor call, including browsing so that verified admins retain visibility. Vendor authorization, validation, ownership, and state changes remain in VendorService. Keep vendor document IDs and account IDs distinct in gateway inputs.
+- Vendor GraphQL response payloads are nullable so REST failures can return `success: false`, `message`, and optional field validation `errors` without GraphQL null-propagation errors. The public `Vendor` type excludes the account association and internal version key.
 
 ### Context and TypeScript contract rules
 
@@ -193,15 +200,51 @@ Keep runtime values in environment configuration and existing configuration modu
 
 Each service owns its dependency manifest, lockfile, compiler configuration, and Dockerfile. Container orchestration belongs in root `docker-compose.yaml`. Do not assume a root npm workspace exists. Redis and RabbitMQ files are empty placeholders; using either requires an agreed integration rather than treating them as operational dependencies.
 
+Gateway and VendorService expose `typecheck` (`tsc --noEmit`), runnable with `pnpm --dir Gateway typecheck` and `pnpm --dir VendorService typecheck`. Dependency installation remains `npm ci` using the existing npm lockfiles. Their local `pnpm-workspace.yaml` files disable automatic dependency replacement before script execution; they do not create a shared root workspace. Add explicit portable exported types when necessary, rather than weakening compiler settings.
+
+VendorService uses a two-stage Node 22 image, production-only runtime dependencies, and a non-root runtime user. Gateway also uses Node 22 to satisfy Apollo's runtime requirements. Compose exposes VendorService on the internal network, supplies its database configuration and shared `JWT_KEY`, waits for MongoDB health, and waits for VendorService health before starting Gateway. Gateway receives both service base URLs. Set `JWT_KEY` in the root environment (see `.env.example`); never commit the actual key.
+
 ### Verification and documentation
 
 For code changes, run the affected implemented service's `npm run build` and relevant checks for the behavior changed. Gateway contract changes need validation on both sides of the HTTP boundary. Report pre-existing failures and unavailable checks accurately; do not weaken compiler rules or claim unperformed verification.
 
-There is currently no configured automated test framework, ESLint, Prettier, or CI pipeline. Do not describe them as existing practices. Keep project-purpose content in `Readme.md`, and architecture, code placement, and contributor rules in this file. Root `AGENTS.md` directs agents to this document.
+`VendorService` has Node's built-in test runner and MongoDB integration tests under `tests/`; `npm test` builds the service and runs them against a temporary MongoDB process using `mongodb-memory-server-core`. Gateway's `npm test` builds it and tests the vendor GraphQL-to-HTTP contracts against a local HTTP test server, including cookie forwarding, pagination, errors, and public field visibility. Other services do not currently have substantive automated tests. ESLint, Prettier, and a CI pipeline are not configured. Keep project-purpose content in `Readme.md`, and architecture, code placement, and contributor rules in this file. Root `AGENTS.md` directs agents to this document.
+
+### VendorService-specific rules
+
+- Create an outlet only after vendor login. `requireVendor` in `src/middlewares/authMiddleware.ts` verifies the existing `token` cookie, permits the `vendor` role only, and sets `vendorUserId` to the account ID. Administrators cannot write outlet records.
+- The outlet's `user` association is immutable and derived from authenticated identity. It is distinct from the outlet document `_id`. Every update filters by both `_id` and `user` atomically; unknown or unowned outlets return 404.
+- New outlets start DEACTIVATED (`isActive: false`) and CLOSED (`isOpen: false`). Opening hours are display-only. One outlet per account is enforced by the unique `user` index, including concurrent creation; conflicts return 409.
+- Runtime request schemas and inferred input types live in `src/types/createVendorBody.ts`. `src/middlewares/validateRequest.ts` applies these Zod schemas at the route boundary. Unknown fields and invalid types are rejected. Controllers keep domain logic; runtime validation does not replace ownership checks.
+- Optional campus, outlet description, image URL, and phone are editable outlet details. Campus and location are free text. Phone is a string; image URLs are HTTP(S) references, not an upload integration. No new arbitrary length limits or phone-country rules have been imposed.
+- Public responses omit `user` and the internal version key. They retain the outlet document ID and outlet details. Activated outlets remain listed when CLOSED. Deactivated outlets are excluded from non-admin listings and return 404 on non-admin lookup by outlet ID or user ID. Admin visibility requires a verified admin JWT, but admins still cannot write outlets. Owners can retrieve their own deactivated outlet through `/me` and manage it.
+- Activation/deactivation use dedicated actions, separate from OPEN/CLOSE and general details editing. Deactivation atomically sets `isActive: false` and `isOpen: false`; opening atomically requires `isActive: true`, preventing simultaneous OPEN and deactivation from leaving an inactive outlet open. Activation alone does not open a newly created or deactivated outlet. General edits cannot change `user`, `isActive`, or `isOpen`.
+- Listings accept `offset` (default 0) and `limit` (default 10). Both are integers; offset is nonnegative and limit is positive. No separate business page-size cap has been specified. Responses include `vendors`, `total` matching the viewer's visibility filter, `offset`, `limit`, and `count` returned. Sort by `_id` ascending to keep offset paging deterministic. Page results and totals are separate reads and may differ if records change during a request.
+- Updates currently use the latest write to a field, without stale-edit rejection, as requested. Records without an explicit persisted `isActive: true` are hidden from non-admin browsing; no existing database records are automatically migrated.
+- `MONGO_URI` takes precedence for connection details; otherwise explicit `MONGO_USERNAME` and `MONGO_PASSWORD` are required. `MONGO_DB_NAME` defaults to `vendordb` and explicitly selects that database even when the URI omits a database or names another one. Startup awaits database connection and requires `JWT_KEY`.
+- Services are intended to communicate through the gateway. Wildcard credentialed CORS is deliberately retained in VendorService at the user's request while backend development continues; CORS hardening is deferred. This setting does not enforce gateway-only network access.
+
+#### Vendor REST endpoints
+
+All paths are relative to `/api/vendor`:
+
+| Method and path | Access | Purpose |
+| --- | --- | --- |
+| `POST /` | Vendor | Create an outlet after login; owner derived from JWT |
+| `GET /me` | Vendor | Retrieve own outlet, including when deactivated |
+| `GET /?offset=0&limit=10` | Public; admin JWT reveals deactivated outlets | List outlets with pagination and viewer-specific totals |
+| `GET /:vendorId` | Public; admin JWT reveals deactivated outlets | Lookup by outlet document ID |
+| `GET /user/:userId` | Public; admin JWT reveals deactivated outlets | Existing lookup by account ID; response still omits account association |
+| `PUT /:vendorId` | Owning vendor | Partially update outlet details |
+| `PATCH /:vendorId/status` | Owning vendor | Set OPEN/CLOSE using `{ "isOpen": true/false }`; activation required for OPEN |
+| `PATCH /:vendorId/activate` | Owning vendor | Activate an outlet; no request body needed |
+| `PATCH /:vendorId/deactivate` | Owning vendor | Deactivate and close an outlet; no request body needed |
+
+Creation requires `outletName` and `location`; `campus`, `openingHours`, `description`, `imageUrl`, and `phone` are optional. Zod request validation stays in the existing types/middleware layers. Parsed query data is passed through `res.locals.validatedQuery` because Express 5 exposes query parameters through a getter.
 
 ## 5. Persistence and domain behavior
 
-Compose runs a shared MongoDB instance with persistent `mongo_data` storage. Default logical databases are `userdb` for both user and vendor services, `menudb` for menu, and `orderdb` for orders. These defaults do not authorize cross-domain database access.
+Compose runs a shared MongoDB instance with persistent `mongo_data` storage. Default logical databases are `userdb` for user, `vendordb` for vendor, `menudb` for menu, and `orderdb` for orders. These settings do not authorize cross-domain database access.
 
 Models relate records through ObjectIds: vendors associate with users, menus have a vendor field, and orders record user/vendor IDs and embedded item snapshots. Referential existence is not currently enforced through cross-service lookups or Mongoose population.
 
@@ -223,11 +266,11 @@ Transition enforcement belongs in `OrderService/src/controllers/orderController.
 
 - `Menu.vendor` is described as a vendor reference, but menu creation stores the authenticated user ID. Ask which identity is intended before changing related contracts or queries.
 - GraphQL contact values are strings, while the user model stores a number. Order-creation interfaces also differ from the actual ordered-item shape. Resolve contract changes deliberately across their consumers.
-- Vendor routes lack authentication; several menu/order operations lack ownership checks. Public registration accepts privileged roles, and direct authentication REST responses include password hashes.
+- Vendor write routes now require vendor authentication and ownership. Several menu/order operations still lack ownership checks. Public registration accepts privileged roles, and direct authentication REST responses include password hashes.
 - Order totals currently use caller-supplied prices, confirmation has no payment verification, and daily order numbering is not atomic. These are correctness gaps, not endorsed practices.
-- Compose supplies `MONGO_URI`, while connection code constructs a different URI from individual settings. Compose does not supply `JWT_KEY` or `USER_SERVICE_URL`, and build-context casing differs from actual directories.
-- Gateway's Dockerfile uses Node 18, while its Apollo Server dependency declares Node `>=20` in the lockfile. Other service runtime images are also inconsistent.
-- Services do not await database initialization before listening. Credentialed CORS uses a wildcard origin, and secure-cookie behavior needs suitable environment configuration.
+- User/menu/order connection code ignores the `MONGO_URI` supplied by Compose; VendorService honors it. Compose supplies the shared JWT key to UserService and VendorService, but menu/order configuration remains incomplete.
+- Gateway and VendorService use Node 22 images; other service runtime images remain inconsistent.
+- User/menu/order services do not await database initialization before listening; VendorService now does. Services use wildcard credentialed CORS; VendorService retains it by explicit user instruction for now. Secure-cookie behavior needs suitable environment configuration.
 - `npm start` uses `ts-node`; implemented Dockerfiles build and run `dist/index.js`. Development/production script and Docker separation remain existing TODOs.
 - `PaymentService` has no application code or build script and is absent from Compose. Do not infer a provider, webhook contract, or payment workflow from the placeholder.
 

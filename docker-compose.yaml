@@ -10,9 +10,17 @@ services:
     volumes:
       - mongo_data:/data/db
 
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   user:
     build: 
-      context: ./userservice
+      context: ./UserService
+      dockerfile: dockerfile
     
     container_name: user-service
 
@@ -21,28 +29,41 @@ services:
 
     environment:
       MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+      JWT_KEY: ${JWT_KEY:?Set JWT_KEY in the root .env file}
       
     depends_on:
       - mongo-db
 
   vendor:
     build:
-      context: ./vendorservice
+      context: ./VendorService
+      dockerfile: dockerfile
 
     container_name: vendor-service
 
-    ports : 
-      - "3001:3000"
+    expose:
+      - "3000"
 
     environment:
-      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+      MONGO_URI: mongodb://admin:admin@mongo-db:27017/vendordb?authSource=admin
+      MONGO_DB_NAME: vendordb
+      JWT_KEY: ${JWT_KEY:?Set JWT_KEY in the root .env file}
     
     depends_on:
-      - mongo-db
+      mongo-db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/vendor?limit=1').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   menu:
     build:
-      context: ./menuservice
+      context: ./MenuService
+      dockerfile: dockerfile
 
     container_name: menu-service
 
@@ -57,7 +78,8 @@ services:
 
   order:
     build:
-      context: ./orderservice
+      context: ./OrderService
+      dockerfile: dockerfile
 
     container_name: order-service
 
@@ -72,18 +94,23 @@ services:
 
   gateway:
     build:
-      context: ./gateway
+      context: ./Gateway
+      dockerfile: dockerfile
 
     container_name: gateway-service
 
     ports : 
       - "3000:3000"
 
-    # environment:
-    #   MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
-    
-    # depends_on:
-    #   - mongo-db
+    environment:
+      USER_SERVICE_URL: http://user:3000/api
+      VENDOR_SERVICE_URL: http://vendor:3000/api/vendor
+
+    depends_on:
+      user:
+        condition: service_started
+      vendor:
+        condition: service_healthy
 
 
 volumes:
