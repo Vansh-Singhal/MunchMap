@@ -6,6 +6,7 @@ export default ` #graphql
     type AuthResponse {
         success: Boolean!
         message: String!
+        errors: [ValidationError!]
         user: User
         token: String
     }

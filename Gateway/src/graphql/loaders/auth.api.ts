@@ -1,30 +1,23 @@
+import { userServiceUrl, userRequestOptions } from "./user.api";
 import axios from "axios";
 import { handleError } from "../utils/handleError";
-import {
-  buildCookieHeader,
-  setResponseCookies,
-} from "../utils/buildCookieHeader";
+import { setResponseCookies } from "../utils/buildCookieHeader";
 import {
   BasicResponse,
   LoginUserInput,
   RegisterUserInput,
-  UserResponse,
+  AuthResponse,
 } from "../../types/user.types";
 import { GQLContext } from "../../utils/context";
-const USER_SERVICE = process.env.USER_SERVICE_URL as string;
 
 export default {
   // POST /auth/register
   registerUser: async (
     input: RegisterUserInput,
     ctx: GQLContext
-  ): Promise<UserResponse> => {
+  ): Promise<AuthResponse> => {
     try {
-      const res = await axios.post(`${USER_SERVICE}/auth/register`, input, {
-        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
-        withCredentials: true,
-        timeout: 5000,
-      });
+      const res = await axios.post<AuthResponse>(`${userServiceUrl()}/auth/register`, input, userRequestOptions(ctx));
       return res.data;
     } catch (error) {
       return handleError(error);
@@ -35,13 +28,9 @@ export default {
   loginUser: async (
     input: LoginUserInput,
     ctx: GQLContext
-  ): Promise<UserResponse<{ token?: string }>> => {
+  ): Promise<AuthResponse> => {
     try {
-      const res = await axios.post(`${USER_SERVICE}/auth/login`, input, {
-        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
-        withCredentials: true,
-        timeout: 5000,
-      });
+      const res = await axios.post<AuthResponse>(`${userServiceUrl()}/auth/login`, input, userRequestOptions(ctx));
       setResponseCookies(ctx, res);
       return res.data;
     } catch (error) {
@@ -52,11 +41,7 @@ export default {
   // GET /auth/logout
   logoutUser: async (ctx: GQLContext): Promise<BasicResponse> => {
     try {
-      const res = await axios.get(`${USER_SERVICE}/auth/logout`, {
-        headers: { Cookie: buildCookieHeader(ctx.req.cookies) },
-        withCredentials: true,
-        timeout: 5000,
-      });
+      const res = await axios.get<BasicResponse>(`${userServiceUrl()}/auth/logout`, userRequestOptions(ctx));
 
       setResponseCookies(ctx, res);
 

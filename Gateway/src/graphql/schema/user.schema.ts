@@ -7,6 +7,7 @@ export default ` #graphql
     type UserResponse {
         success: Boolean!
         message: String!
+        errors: [ValidationError!]
         user: User
     }
 

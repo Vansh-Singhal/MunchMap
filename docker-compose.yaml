@@ -21,7 +21,8 @@ services:
       - "3002:3000"
 
     environment:
-      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+      MONGO_URI: mongodb://admin:admin@mongo-db:27017/userdb?authSource=admin
+      MONGO_DB_NAME: userdb
       JWT_KEY: ${JWT_KEY:-munchmap-local-development-key}
       
     depends_on:

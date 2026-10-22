@@ -1,85 +1,58 @@
-import UserDB, { User } from "../models/User";
-import { Request, Response } from "express";
-import { Types } from "mongoose";
+import UserDB from "../models/User";
+import { Response } from "express";
 import bcrypt from "bcrypt";
+import { AuthRequest } from "../types/authRequest";
+import { UpdateUserBody, UpdatePasswordBody } from "../types/userBody";
+import { tokenCookieOptions } from "../utils/config";
+import { handleError, handleUserError } from "../utils/handleError";
 
-interface AuthRequest extends Request {
-  id?: Types.ObjectId;
-}
-
-export const getCurrentUser = async (req: AuthRequest, res: Response) => {
+export const getCurrentUser = async (req: AuthRequest, res: Response): Promise<Response> => {
   try {
-    const user: User | null = await UserDB.findById(req.id).select("-password");
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-
-    return res.status(200).json({
-      success: true,
-      message: "User fetched successfully",
-      user,
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: "Server error" });
+    const user = await UserDB.findById(req.id);
+    if (!user) return handleError(res, "User not found", 404);
+    return res.status(200).json({ success: true, message: "User fetched successfully", user });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };
 
-export const updateCurrentUser = async (req: AuthRequest, res: Response) => {
+export const updateCurrentUser = async (
+  req: AuthRequest<Record<string, string>, UpdateUserBody>, res: Response
+): Promise<Response> => {
   try {
-    const updates = {
-      name: req.body.name,
-      contact: req.body.contact,
-    };
-
-    const updatedUser = await UserDB.findByIdAndUpdate(
-      req.id,
-      { $set: updates },
-      { new: true, runValidators: true }
-    ).select("-password");
-
-    res
-      .status(200)
-      .json({ success: true, message: "Profile updated", user: updatedUser });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
+    const user = await UserDB.findByIdAndUpdate(req.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!user) return handleError(res, "User not found", 404);
+    return res.status(200).json({ success: true, message: "Profile updated", user });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };
 
-export const updatePassword = async (req: AuthRequest, res: Response) => {
+export const updatePassword = async (
+  req: AuthRequest<Record<string, string>, UpdatePasswordBody>, res: Response
+): Promise<Response> => {
   try {
     const { currentPassword, newPassword } = req.body;
-
-    const user = await UserDB.findById(req.id);
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Current password is incorrect" });
+    const user = await UserDB.findById(req.id).select("+password");
+    if (!user) return handleError(res, "User not found", 404);
+    if (!await bcrypt.compare(currentPassword, user.password)) {
+      return handleError(res, "Current password is incorrect", 400);
     }
-
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
-
-    return res
-      .status(200)
-      .json({ success: true, message: "Password updated successfully" });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };
 
-export const deleteAccount = async (req: AuthRequest, res: Response) => {
+export const deleteAccount = async (req: AuthRequest, res: Response): Promise<Response> => {
   try {
-    await UserDB.findByIdAndDelete(req.id);
-    res.clearCookie('token');
-    res.status(200).json({ success: true, message: 'Account deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error' });
+    const user = await UserDB.findByIdAndDelete(req.id);
+    if (!user) return handleError(res, "User not found", 404);
+    res.clearCookie("token", tokenCookieOptions);
+    return res.status(200).json({ success: true, message: "Account deleted successfully" });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };

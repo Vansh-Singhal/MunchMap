@@ -3,7 +3,7 @@ import {
   InputWrapper,
   LoginUserInput,
   RegisterUserInput,
-  UserResponse,
+  AuthResponse,
 } from "../../types/user.types";
 import { GQLContext } from "../../utils/context";
 import authAPI from "../loaders/auth.api";
@@ -14,7 +14,7 @@ export const authResolvers = {
       _: unknown,
       { input }: InputWrapper<RegisterUserInput>,
       context: GQLContext
-    ): Promise<UserResponse> => {
+    ): Promise<AuthResponse> => {
       return authAPI.registerUser(input, context);
       // returns: { success, message, user, token }
     },
@@ -23,7 +23,7 @@ export const authResolvers = {
       _: unknown,
       { input }: InputWrapper<LoginUserInput>,
       context: GQLContext
-    ): Promise<UserResponse<{ token?: string }>> => {
+    ): Promise<AuthResponse> => {
       return authAPI.loginUser(input, context);
       // returns: { success, message, user, token }
     },

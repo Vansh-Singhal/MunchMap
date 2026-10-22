@@ -6,6 +6,8 @@ import {
   deleteUserById,
 } from '../controllers/adminController';
 import { protect, isAdmin } from "../middleware/authMiddleware";
+import { validateRequest } from "../middleware/validateRequest";
+import { userIdSchema, userListSchema, updateAdminUserSchema } from "../types/userBody";
 
 const router: Router = Router();
 
@@ -14,9 +16,9 @@ router.use(protect);
 router.use(isAdmin);
 
 // // Admin-only user management
-router.get('/users', getAllUsers);
-router.get('/users/:id', getUserById);
-router.put('/users/:id', updateUserById);
-router.delete('/users/:id', deleteUserById);
+router.get('/users', validateRequest(userListSchema, 'query'), getAllUsers);
+router.get('/users/:id', validateRequest(userIdSchema, 'params'), getUserById);
+router.put('/users/:id', validateRequest(userIdSchema, 'params'), validateRequest(updateAdminUserSchema), updateUserById);
+router.delete('/users/:id', validateRequest(userIdSchema, 'params'), deleteUserById);
 
 export default router;

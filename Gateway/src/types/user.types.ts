@@ -2,9 +2,12 @@
 // Base Types
 // =========================
 
+import type { ValidationIssue } from "./apiError.types";
+
 export interface BasicResponse {
   success: boolean;
   message: string;
+  errors?: ValidationIssue[];
 }
 
 export interface User {
@@ -19,11 +22,12 @@ export interface User {
 // User Service Types
 // =========================
 
-export interface UserResponse<T=undefined> {
-  success: boolean;
-  message: string;
+export interface UserResponse extends BasicResponse {
   user?: User;
-  extra?: T;
+}
+
+export interface AuthResponse extends UserResponse {
+  token?: string;
 }
 
 // Input: update /me
@@ -60,10 +64,21 @@ export interface LoginUserInput {
 // Admin Service Types
 // =========================
 
-export interface AdminResponse {
-  success: boolean;
-  message: string;
+export interface AdminResponse extends BasicResponse {
   users?: User[];
+  total?: number;
+  offset?: number;
+  limit?: number;
+  count?: number;
+}
+
+export interface UserPaginationInput {
+  offset?: number;
+  limit?: number;
+}
+
+export interface AdminUpdateUserInput extends UpdateUserInput {
+  email?: string;
 }
 
 // Generic ID input
@@ -74,7 +89,7 @@ export interface IDInput {
 // Update user by ID
 export interface UpdateUserByIdInput {
   id: string;
-  input: UpdateUserInput;
+  input: AdminUpdateUserInput;
 }
 
 // =========================

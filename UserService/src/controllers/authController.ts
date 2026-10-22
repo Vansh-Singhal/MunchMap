@@ -1,138 +1,42 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import UserDB, { User } from "../models/User";
+import UserDB from "../models/User";
 import { generateToken } from "../utils/generateToken";
+import { tokenCookieOptions } from "../utils/config";
 import { RegisterRequestBody } from "../types/RegisterReq";
 import { LoginRequestBody } from "../types/LoginReq";
+import { handleError, handleUserError } from "../utils/handleError";
 
 export const registerUser = async (
-  req: Request<{}, {}, RegisterRequestBody>,
-  res: Response
-) => {
+  req: Request<Record<string, string>, unknown, RegisterRequestBody>, res: Response
+): Promise<Response> => {
   try {
-    const { name, email, contact, password, role } = req.body;
-
-    if (!name || !email || !contact || !password || !role) {
-      return res.status(400).json({
-        message: "Some fields are missing",
-        success: false,
-      });
-    }
-
-    const existingUser = await UserDB.findOne({ email });
-
-    if (existingUser) {
-      return res.status(400).json({
-        message: "User email already exists",
-        success: false,
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const user: User = await UserDB.create({
-      name,
-      email,
-      contact,
-      password: hashedPassword,
-      role,
-    });
-
-    return res.status(201).json({
-      message: "Account created successfully",
-      user,
-      success: true,
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Internal server error",
-      success: false,
-    });
+    const user = await UserDB.create({ ...req.body, password: await bcrypt.hash(req.body.password, 10) });
+    return res.status(201).json({ success: true, message: "Account created successfully", user });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };
 
 export const loginUser = async (
-  req: Request<{}, {}, LoginRequestBody>,
-  res: Response
+  req: Request<Record<string, string>, unknown, LoginRequestBody>, res: Response
 ): Promise<Response> => {
   try {
     const { email, password, role } = req.body;
-
-    if (!email || !password || !role) {
-      return res.status(400).json({
-        message: "Some fields are missing",
-        success: false,
-      });
+    const user = await UserDB.findOne({ email }).select("+password");
+    if (!user || role !== user.role || !await bcrypt.compare(password, user.password)) {
+      return handleError(res, "Email or password incorrect for role", 401);
     }
-
-    const user: User | null = await UserDB.findOne({ email });
-
-    if (!user) {
-      return res.status(400).json({
-        message: "Email or Password Incorrect",
-        success: false,
-      });
-    }
-
-    if (role !== user.role) {
-      return res.status(400).json({
-        message: "Account does not exist for role",
-        success: false,
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(400).json({
-        message: "Email or Password Incorrect",
-        success: false,
-      });
-    }
-
-    const token = generateToken(user as User);
-
-    return res
-      .status(200)
-      .cookie("token", token, {
-        maxAge: 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-      })
-      .json({
-        message: `Welcome back, ${user.name}`,
-        user,
-        token,
-        success: true,
-      });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Internal server error",
-      success: false,
-    });
+    const token = generateToken(user);
+    return res.status(200)
+      .cookie("token", token, { ...tokenCookieOptions, maxAge: 24 * 60 * 60 * 1000 })
+      .json({ success: true, message: `Welcome back, ${user.name}`, user, token });
+  } catch (error: unknown) {
+    return handleUserError(res, error);
   }
 };
 
-export const logoutUser = async (
-  _: Request,
-  res: Response
-): Promise<Response> => {
-  try {
-    res.clearCookie("token", {
-      httpOnly: true,
-      sameSite: "strict",
-    });
-
-    return res.status(200).json({
-      message: "User logged out successfully",
-      success: true,
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      message: "Internal server error during logout",
-      success: false,
-    });
-  }
+export const logoutUser = (_: Request, res: Response): Response => {
+  res.clearCookie("token", tokenCookieOptions);
+  return res.status(200).json({ success: true, message: "User logged out successfully" });
 };

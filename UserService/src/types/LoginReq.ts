@@ -1,5 +1,4 @@
-export type LoginRequestBody = {
-  email: string;
-  password: string;
-  role: string;
-}
+import { z } from "zod";
+import { loginSchema } from "./userBody";
+
+export type LoginRequestBody = z.infer<typeof loginSchema>;

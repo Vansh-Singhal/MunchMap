@@ -1,5 +1,6 @@
 import {
   AdminResponse,
+  UserPaginationInput,
   BasicResponse,
   IDInput,
   InputWrapper,
@@ -13,10 +14,10 @@ export const adminResolvers = {
   Query: {
     getAllUsers: async (
       _: unknown,
-      __: unknown,
+      { input }: { input?: UserPaginationInput },
       context: GQLContext
     ): Promise<AdminResponse> => {
-      return adminAPI.fetchAllUsers(context);
+      return adminAPI.fetchAllUsers(input, context);
       // returns: { success, message, user[] }
     },
 

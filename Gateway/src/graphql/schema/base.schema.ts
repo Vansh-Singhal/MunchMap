@@ -1,7 +1,13 @@
 export default `#graphql
+  type ValidationError {
+    field: String!
+    message: String!
+  }
+
   type BasicResponse {
     success: Boolean!
     message: String!
+    errors: [ValidationError!]
   }
 
   type User {

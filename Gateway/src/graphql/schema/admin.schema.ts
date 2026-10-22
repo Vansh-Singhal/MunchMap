@@ -7,7 +7,12 @@ export default ` #graphql
     type AdminResponse {
         success: Boolean!
         message: String!
-        users: [User]
+        errors: [ValidationError!]
+        users: [User!]
+        total: Int
+        offset: Int
+        limit: Int
+        count: Int
     }
 
     # ------------------------------------------------------
@@ -20,9 +25,20 @@ export default ` #graphql
     }
 
     # Input type for the mutation
+    input AdminUpdateUserInput {
+        name: String
+        contact: String
+        email: String
+    }
+
+    input UserPaginationInput {
+        offset: Int = 0
+        limit: Int = 10
+    }
+
     input UpdateUserByIdInput {
         id: ID!
-        input: UpdateUserInput!
+        input: AdminUpdateUserInput!
     }
 
     # ------------------------------------------------------
@@ -30,7 +46,7 @@ export default ` #graphql
     # ------------------------------------------------------
 
     extend type Query {
-        getAllUsers : AdminResponse!,
+        getAllUsers(input: UserPaginationInput): AdminResponse!,
         getUserById(input : IDInput!) : UserResponse!,
     }
 

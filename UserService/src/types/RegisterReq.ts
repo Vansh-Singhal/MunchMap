@@ -1,7 +1,4 @@
-export type RegisterRequestBody = {
-  name: string;
-  email: string;
-  contact: number;
-  password: string;
-  role: string;
-};
+import { z } from "zod";
+import { registerSchema } from "./userBody";
+
+export type RegisterRequestBody = z.infer<typeof registerSchema>;
