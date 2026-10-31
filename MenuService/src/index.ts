@@ -1,29 +1,49 @@
-import express from "express";
+import express, { ErrorRequestHandler, Express } from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 dotenv.config();
 
-const app = express();
-import { PORT } from "./utils/config";
+import { getPort, getVendorServiceUrl } from "./utils/config";
 import connectDB from "./config/dbconfig";
-
 import router from "./routes/menuRoutes";
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+export const createApp = (): Express => {
+  const app = express();
+  app.use(cors({ origin: "*", credentials: true }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+  app.use("/api/menu", router);
 
-const corsOption = {
-  origin: "*",
-  credentials: true,
+  const handleRequestError: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
+    const status = typeof error === "object" && error !== null && "status" in error
+      ? error.status : undefined;
+    if (status === 400 || status === 413 || status === 415) {
+      res.status(status).json({ success: false, message: "Invalid request body" });
+      return;
+    }
+    console.error("Menu request failed", error instanceof Error ? error.name : "Unknown error");
+    res.status(500).json({ success: false, message: "Internal server error" });
+  };
+  app.use(handleRequestError);
+  return app;
 };
-app.use(cors(corsOption));
 
-app.use("/api/menu/", router);
+const start = async (): Promise<void> => {
+  const port = getPort();
+  if (!process.env.JWT_KEY) throw new Error("JWT_KEY is required");
+  getVendorServiceUrl();
+  await connectDB();
+  createApp().listen(port, () => {
+    console.log(`Menu service is running on port ${port}`);
+  });
+};
 
-connectDB();
-
-app.listen(PORT, () => {
-  console.log(`Menu service is running on port ${PORT}`);
-});
+if (require.main === module) {
+  start().catch((error: unknown) => {
+    // Database errors can contain connection credentials; avoid printing them.
+    console.error("Menu service startup failed", error instanceof Error ? error.name : "Unknown error");
+    process.exitCode = 1;
+  });
+}

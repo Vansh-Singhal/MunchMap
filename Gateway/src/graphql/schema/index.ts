@@ -3,5 +3,6 @@ import user from "./user.schema";
 import auth from "./auth.schema";
 import admin from "./admin.schema";
 import vendor from "./vendor.schema";
+import menu from "./menu.schema";
 
-export const typeDefs = [base, user, auth, admin, vendor];
+export const typeDefs = [base, user, auth, admin, vendor, menu];

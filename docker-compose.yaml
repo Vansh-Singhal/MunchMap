@@ -57,10 +57,14 @@ services:
       - "3003:3000"
 
     environment:
-      MONGO_URI: mongodb://admin:admin@mongo:27017/?authSource=admin
+      MONGO_URI: mongodb://admin:admin@mongo-db:27017/menudb?authSource=admin
+      MONGO_DB_NAME: menudb
+      JWT_KEY: ${JWT_KEY:-munchmap-local-development-key}
+      VENDOR_SERVICE_URL: http://vendor:3000/api/vendor
     
     depends_on:
       - mongo-db
+      - vendor
 
   order:
     build:
@@ -91,10 +95,12 @@ services:
     environment:
       USER_SERVICE_URL: http://user:3000/api
       VENDOR_SERVICE_URL: http://vendor:3000/api/vendor
+      MENU_SERVICE_URL: http://menu:3000/api/menu
 
     depends_on:
       - user
       - vendor
+      - menu
 
 
 volumes:

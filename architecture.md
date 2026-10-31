@@ -28,7 +28,8 @@ flowchart TD
     Client[External client - not included] --> Gateway[GraphQL Gateway]
     Gateway -->|Implemented REST delegation| User[UserService]
     Gateway -->|Implemented REST delegation| Vendor[VendorService]
-    Client -->|Available REST API| Menu[MenuService]
+    Gateway -->|Implemented REST delegation| Menu[MenuService]
+    Menu -->|Ownership and visibility HTTP lookups| Vendor
     Client -->|Available REST API| Order[OrderService]
     User --> Mongo[(Shared MongoDB instance)]
     Vendor --> Mongo
@@ -37,7 +38,7 @@ flowchart TD
     Payment[PaymentService - placeholder]
 ```
 
-User/auth/admin and vendor operations are exposed through GraphQL. Menu and order services have REST endpoints but no gateway modules yet. The client arrows describe API access, not an existing frontend. The gateway uses REST adapters, not Apollo Federation.
+User/auth/admin, vendor, and menu operations are exposed through GraphQL. OrderService has REST endpoints but no gateway module yet. The client arrows describe API access, not an existing frontend. The gateway uses REST adapters, not Apollo Federation.
 
 ## 2. Domain service layout: follow STRICTLY
 
@@ -94,24 +95,28 @@ Gateway/src/
       user.schema.ts
       admin.schema.ts
       vendor.schema.ts
+      menu.schema.ts
       index.ts
     resolvers/
       auth.resolver.ts
       user.resolver.ts
       admin.resolver.ts
       vendor.resolver.ts
+      menu.resolver.ts
       index.ts
     loaders/
       auth.api.ts
       user.api.ts
       admin.api.ts
       vendor.api.ts
+      menu.api.ts
     utils/
       buildCookieHeader.ts
       handleError.ts
   types/
     user.types.ts
     vendor.types.ts
+    menu.types.ts
     apiError.types.ts
   utils/
     context.ts
@@ -164,7 +169,7 @@ Gateway/src/
 6. Register the schema and resolver in their respective `index.ts` composition files.
 7. Check the full contract and credential flow through the gateway and service.
 
-This is a placement guide for future authorized work; these menu gateway files do not currently exist.
+MenuService follows this division with `menu.schema.ts`, `menu.resolver.ts`, `menu.api.ts`, and `menu.types.ts`.
 
 ## 4. Coding practices: follow STRICTLY
 
@@ -200,15 +205,15 @@ Keep runtime values in environment configuration and existing configuration modu
 
 Each service owns its dependency manifest, lockfile, compiler configuration, and Dockerfile. Container orchestration belongs in root `docker-compose.yaml`. Do not assume a root npm workspace exists. Redis and RabbitMQ files are empty placeholders; using either requires an agreed integration rather than treating them as operational dependencies.
 
-Gateway, UserService, and VendorService expose `typecheck` (`tsc --noEmit`), runnable with `npm --prefix <Service> run typecheck` or `pnpm --dir <Service> typecheck`. Dependency installation remains `npm ci` using the existing npm lockfiles. Their local `pnpm-workspace.yaml` files disable automatic dependency replacement before script execution; they do not create a shared root workspace. Add explicit portable exported types when necessary, rather than weakening compiler settings.
+Gateway, UserService, VendorService, and MenuService expose `typecheck` (`tsc --noEmit`), runnable with `npm --prefix <Service> run typecheck` or `pnpm --dir <Service> typecheck`. Dependency installation remains `npm ci` using the existing npm lockfiles. Their local `pnpm-workspace.yaml` files disable automatic dependency replacement before script execution; they do not create a shared root workspace. Add explicit portable exported types when necessary, rather than weakening compiler settings.
 
-UserService and VendorService use two-stage Node 22 images, production-only runtime dependencies, and a non-root runtime user. Gateway also uses Node 22 to satisfy Apollo's runtime requirements. Root Compose is currently for local development: VendorService is published at `localhost:3001` (container port 3000), UserService at `localhost:3002`, and Gateway at `localhost:3000`. Gateway receives both internal service base URLs. Compose uses ordinary startup dependencies without health checks or readiness conditions; container startup order does not guarantee database or API readiness. UserService and VendorService share a development-only JWT key fallback so local startup needs no extra environment setup; `JWT_KEY` can override it. Production configuration and hardening are deferred until explicitly requested by the user. Never commit a real signing key.
+UserService, VendorService, and MenuService use two-stage Node 22 images, production-only runtime dependencies, and a non-root runtime user. Gateway also uses Node 22 to satisfy Apollo's runtime requirements. Root Compose is currently for local development: VendorService is published at `localhost:3001` (container port 3000), UserService at `localhost:3002`, MenuService at `localhost:3003`, and Gateway at `localhost:3000`. Gateway receives all three internal service base URLs; MenuService receives the VendorService base URL for outlet lookups. Compose uses ordinary startup dependencies without health checks or readiness conditions; container startup order does not guarantee database or API readiness. UserService, VendorService, and MenuService share a development-only JWT key fallback so local startup needs no extra environment setup; `JWT_KEY` can override it. Production configuration and hardening are deferred until explicitly requested by the user. Never commit a real signing key.
 
 ### Verification and documentation
 
 For code changes, run the affected implemented service's `npm run build` and relevant checks for the behavior changed. Gateway contract changes need validation on both sides of the HTTP boundary. Report pre-existing failures and unavailable checks accurately; do not weaken compiler rules or claim unperformed verification.
 
-`UserService` and `VendorService` have Node's built-in test runner and focused MongoDB integration tests under `tests/`; `npm test` builds the service and runs them against a temporary MongoDB process using `mongodb-memory-server-core`. Gateway's `npm test` builds it and tests account and vendor GraphQL-to-HTTP contracts against a local HTTP test server, including cookie forwarding, pagination, errors, and public field visibility. MenuService and OrderService do not currently have substantive automated tests. ESLint, Prettier, and a CI pipeline are not configured. Keep project-purpose content in `Readme.md`, and architecture, code placement, and contributor rules in this file. Root `AGENTS.md` directs agents to this document.
+`UserService`, `VendorService`, and `MenuService` have Node's built-in test runner and focused MongoDB integration tests under `tests/`; `npm test` builds the service and runs them against a temporary MongoDB process using `mongodb-memory-server-core`. Gateway's `npm test` builds it and tests account, vendor, and menu GraphQL-to-HTTP contracts against a local HTTP test server, including cookie forwarding, pagination, errors, and public field visibility. OrderService does not currently have substantive automated tests. ESLint, Prettier, and a CI pipeline are not configured. Keep project-purpose content in `Readme.md`, and architecture, code placement, and contributor rules in this file. Root `AGENTS.md` directs agents to this document.
 
 ### UserService-specific rules
 
@@ -256,11 +261,40 @@ All paths are relative to `/api/vendor`:
 
 Creation requires `outletName` and `location`; `campus`, `openingHours`, `description`, `imageUrl`, and `phone` are optional. Zod request validation stays in the existing types/middleware layers. Parsed query data is passed through `res.locals.validatedQuery` because Express 5 exposes query parameters through a getter.
 
+### MenuService-specific rules
+
+- Menu items belong to the outlet document ID in `vendor`, not the vendor account ID. Resolve the logged-in vendor's outlet via VendorService `GET /api/vendor/me`, forwarding only the token cookie. Never import VendorService models or access its collections. Cross-service transport belongs in the small `utils/vendorApi.ts` helper; decisions remain in menu controllers.
+- Only vendors can create or modify items; admins cannot write. Every item update filters atomically by item ID and the resolved owned outlet ID. Owners can manage their full menu while the outlet is closed or deactivated. The outlet association is immutable.
+- New items are unlisted (`isListed: false`) and available (`isAvailable: true`). Creation accepts details only. Dedicated listing and availability actions change one flag at a time. Unlisting/relisting preserves availability. No archive state or permanent-delete endpoint exists in this milestone.
+- Anonymous browsing returns only explicitly listed items belonging to an active outlet. Unavailable items remain visible. Closed active outlets keep their menus visible. Public single-item lookup also hides unlisted items and items at deactivated/missing outlets with 404. Public outlet lookups deliberately omit identity cookies, including admin cookies; elevated browsing is not implemented for menus. Owners use dedicated management endpoints.
+- Runtime Zod schemas and inferred inputs live in `types/createMenuBody.ts`. Reject unknown fields, malformed IDs, empty edits, invalid types, non-HTTP(S) image references, negative prices, and prices with more than two decimal places. Optional descriptions/categories remain simple strings; image URLs are references, not uploads.
+- Currency is INR only. REST and GraphQL accept/return `price` in rupees and return `currency: "INR"`. Persist only integer `pricePaise`, including zero, bounded by JavaScript's safe integer range. Decimal digits are converted without floating-point multiplication or silent rounding. Responses omit `pricePaise` and `__v` using model serialization; do not bypass this with lean/raw responses.
+- Public and owner listings use integer offset/limit with defaults 0/10, ascending `_id` sort, no business page-size cap, and `menuItems`, `total`, `offset`, `limit`, and `count`. Public totals count only listed items; owner totals include unlisted items. Page and total reads are separate.
+- VendorService requests time out after five seconds. Upstream authorization/not-found responses retain 401/403/404; network errors, timeouts, malformed payloads, and upstream server failures return 503 without exposing credentials or internal upstream errors. Ownership and public visibility are checked per request, without a distributed transaction; simultaneous changes across services can race.
+- `MONGO_URI` takes precedence, explicit database selection defaults to `menudb`, and startup requires `JWT_KEY` and `VENDOR_SERVICE_URL` (including `/api/vendor`) before awaiting MongoDB and listening. Export `createApp` for tests. Keep the development CORS convention consistent with the other services.
+- Gateway menu adapters use `MENU_SERVICE_URL` including `/api/menu`, five-second timeouts, existing cookie/error helpers, shared GraphQL `ValidationError`, and nullable payload/metadata fields on failures. Gateway owns no menu pricing or visibility rules.
+- This replaces the prototype account-ID association and rupee persistence shape. No automatic migration or destructive cleanup of legacy menu records is performed. Existing prototype data needs an explicitly agreed migration before reuse. OrderService is not integrated and still needs its own trusted pricing/availability checks in a later milestone.
+
+#### Menu REST endpoints
+
+All paths are relative to `/api/menu`:
+
+| Method and path | Access | Purpose |
+| --- | --- | --- |
+| `POST /createItem` | Vendor with an outlet | Create unlisted, available item; name and rupee price required |
+| `GET /me?offset=0&limit=10` | Vendor | List own items, including unlisted |
+| `GET /me/:menuId` | Owning vendor | Retrieve own item, including unlisted |
+| `GET /vendor/:vendorId?offset=0&limit=10` | Public | Listed items at an active outlet, including unavailable items |
+| `GET /:menuId` | Public | Listed item at an active outlet |
+| `PATCH /:menuId` | Owning vendor | Edit name, description, category, image URL, or rupee price |
+| `PATCH /:menuId/listing` | Owning vendor | Set `isListed`; availability unchanged |
+| `PATCH /:menuId/availability` | Owning vendor | Set `isAvailable`; listing unchanged |
+
 ## 5. Persistence and domain behavior
 
 Compose runs a shared MongoDB instance with persistent `mongo_data` storage. Default logical databases are `userdb` for user, `vendordb` for vendor, `menudb` for menu, and `orderdb` for orders. These settings do not authorize cross-domain database access.
 
-Models relate records through ObjectIds: vendors associate with users, menus have a vendor field, and orders record user/vendor IDs and embedded item snapshots. Referential existence is not currently enforced through cross-service lookups or Mongoose population.
+Models relate records through ObjectIds: vendors associate with users, menus have a vendor field, and orders record user/vendor IDs and embedded item snapshots. MenuService resolves outlet ownership and public visibility through VendorService HTTP endpoints. Order references are not yet checked through cross-service lookups; no cross-service Mongoose population is used.
 
 The current order transitions are:
 
@@ -278,13 +312,12 @@ Transition enforcement belongs in `OrderService/src/controllers/orderController.
 
 ## 6. Existing limitations: do not mistake these for architectural rules
 
-- `Menu.vendor` is described as a vendor reference, but menu creation stores the authenticated user ID. Ask which identity is intended before changing related contracts or queries.
 - Order-creation interfaces differ from the actual ordered-item shape. Resolve contract changes deliberately across their consumers.
-- Vendor write routes require vendor authentication and ownership. Several menu/order operations still lack ownership checks.
+- Vendor and menu write routes require vendor authentication and ownership. Several order operations still lack ownership checks.
 - Order totals currently use caller-supplied prices, confirmation has no payment verification, and daily order numbering is not atomic. These are correctness gaps, not endorsed practices.
-- Menu/order connection code ignores the `MONGO_URI` supplied by Compose; UserService and VendorService honor it. Compose supplies the shared JWT key to UserService and VendorService, but menu/order configuration remains incomplete.
-- Gateway, UserService, and VendorService use Node 22 images; menu/order runtime images remain inconsistent.
-- Menu/order services do not await database initialization before listening; UserService and VendorService do. Services use wildcard credentialed CORS; VendorService retains it by explicit user instruction for now. Secure-cookie behavior needs suitable environment configuration.
+- OrderService connection code ignores the `MONGO_URI` supplied by Compose; UserService, VendorService, and MenuService honor it. Compose supplies their shared JWT key, but OrderService configuration remains incomplete.
+- Gateway, UserService, VendorService, and MenuService use Node 22 images; OrderService runtime images remain inconsistent.
+- OrderService does not await database initialization before listening; UserService, VendorService, and MenuService do. Services use wildcard credentialed CORS; VendorService retains it by explicit user instruction for now. Secure-cookie behavior needs suitable environment configuration.
 - `npm start` uses `ts-node`; implemented Dockerfiles build and run `dist/index.js`. Development/production script and Docker separation remain existing TODOs.
 - `PaymentService` has no application code or build script and is absent from Compose. Do not infer a provider, webhook contract, or payment workflow from the placeholder.
 

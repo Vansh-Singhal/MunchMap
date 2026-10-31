@@ -1,19 +1,10 @@
 import mongoose from "mongoose";
-const {
-  MONGO_USERNAME,
-  MONGO_PASSWORD,
-  MONGO_DB_NAME,
-} = require("../utils/config");
-
-const MONGO_URI = `mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo-db:27017/${MONGO_DB_NAME}?authSource=admin`;
+import { getMongoUri, getMongoDbName } from "../utils/config";
 
 const connectDB = async () => {
-  try {
-    await mongoose.connect(MONGO_URI);
-    console.log("MongoDB connected successfully");
-  } catch (error) {
-    console.log("MongoDB connected failed:", error);
-  }
+  // Reject startup on failure; the entry point awaits this before listening.
+  await mongoose.connect(getMongoUri(), { dbName: getMongoDbName() });
+  console.log("MongoDB connected successfully");
 };
 
 export default connectDB;
